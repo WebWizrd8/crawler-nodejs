@@ -1,29 +1,46 @@
 import { parentPort } from "worker_threads";
 import WebSocket from "ws";
-import { IWorkerData, WorkerMessage } from "../types/worker";
+import { EthMessageMethod, IWorkerData, WorkerMessage } from "../types/worker";
 
-export const worker = (workerData: IWorkerData) => {
-  const payload = {
+let id = 0
+
+export const worker = ({endpoint}: IWorkerData) => {
+  const logSubscribePayload = {
     jsonrpc: "2.0",
-    id: workerData.chainId,
+    id: id++,
     method: "eth_subscribe",
     params: ["logs", {}],
   };
-  if (!workerData?.endpoint) {
+  if (!endpoint) {
     console.log("no endpoint provided");
     return;
   }
 
-  console.log(workerData?.endpoint);
+  console.log(endpoint);
 
-  const ws = new WebSocket(workerData.endpoint);
+  const ws = new WebSocket(endpoint);
 
   ws.on("open", () => {
-    ws.send(JSON.stringify(payload));
+    ws.send(JSON.stringify(logSubscribePayload));
   });
 
-  ws.on("message", (data) => {
+  ws.on("message", (data: string) => {
     console.log(`received: ${data} \n`)
+    const ethMessage = JSON.parse(data)
+
+    if (!ethMessage.params?.result?.transactionHash) {
+      return
+    }
+
+    if (ethMessage.method === EthMessageMethod.Subscription) {
+      const transactionPayload = {
+        jsonrpc: '2.0',
+        id: id++,
+        method: "eth_getTransactionByHash",
+        params: [ethMessage?.params?.result?.transactionHash]
+      }
+      ws.send(JSON.stringify(transactionPayload))
+    }
   });
 
   parentPort?.on("message", (message: WorkerMessage) => {
