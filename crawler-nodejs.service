@@ -1,10 +1,12 @@
 [Unit]
 Description=Crawler nodejs
 After=network.target
+
 [Service]
 User=ubuntu
-Environment=REDIS_HOST=localhost
 WorkingDirectory=/home/ubuntu/dev/crawler-nodejs
 ExecStart=/usr/bin/node ./build/main.js
+Restart=on-failure
+
 [Install]
 WantedBy=multi-user.target
