@@ -1,6 +1,7 @@
 export interface IWorkerData {
-  chainId: number,
+  chainId: number;
   endpoint: string;
+  trackLastNTransactions: number;
 }
 
 export enum WorkerMessage {
@@ -9,27 +10,27 @@ export enum WorkerMessage {
 }
 
 export enum EthMessageMethod {
-  Subscription = "eth_subscription"
+  Subscription = "eth_subscription",
 }
 
 interface IEthMessageParamsResult {
-  address: string,
-  topics: string[],
-  data: string,
-  blockNumber: string,
-  transactionHash: string,
-  transactionIndex: string,
-  blockHash: string,
-  logIndex: string,
-  removed: boolean,
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+  transactionIndex: string;
+  blockHash: string;
+  logIndex: string;
+  removed: boolean;
 }
 
 interface IEthMessageParams {
-  subscription: string,
-  result: IEthMessageParamsResult,
+  subscription: string;
+  result: IEthMessageParamsResult;
 }
 
 export interface IEthMessage {
-  method: EthMessageMethod,
-  params: IEthMessageParams,
+  method: EthMessageMethod;
+  params: IEthMessageParams;
 }

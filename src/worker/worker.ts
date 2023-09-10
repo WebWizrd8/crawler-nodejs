@@ -1,10 +1,26 @@
 import { parentPort } from "worker_threads";
 import WebSocket from "ws";
 import { EthMessageMethod, IWorkerData, WorkerMessage } from "../types/worker";
+import { getLastTransactionsStorage } from "../utils/transactionHashStorage";
+import winston from "winston";
 
-let id = 0
+let id = 0;
 
-export const worker = ({endpoint}: IWorkerData) => {
+export const worker = ({
+  chainId,
+  endpoint,
+  trackLastNTransactions,
+}: IWorkerData) => {
+  const logger = winston.createLogger({
+    level: "info",
+    format: winston.format.json(),
+    defaultMeta: { service: `chain ${chainId}` },
+    transports: [
+      new winston.transports.Console({
+        format: winston.format.simple(),
+      }),
+    ],
+  });
   const logSubscribePayload = {
     jsonrpc: "2.0",
     id: id++,
@@ -12,36 +28,41 @@ export const worker = ({endpoint}: IWorkerData) => {
     params: ["logs", {}],
   };
   if (!endpoint) {
-    console.log("no endpoint provided");
-    return;
+    logger.error("no endpoint provided");
+    process.exit();
   }
-
-  console.log(endpoint);
+  const hashTracker = getLastTransactionsStorage(trackLastNTransactions);
 
   const ws = new WebSocket(endpoint);
+
+  const handleMessage = (data: string) => {
+    logger.debug(`received: ${data} \n`);
+    const ethMessage = JSON.parse(data);
+
+    if (!ethMessage.params?.result?.transactionHash) {
+      return;
+    }
+
+    if (ethMessage.method === EthMessageMethod.Subscription) {
+      const transactionHash = ethMessage.params.result.transactionHash;
+      if (!hashTracker.has(transactionHash)) {
+        hashTracker.push(transactionHash);
+        const transactionPayload = {
+          jsonrpc: "2.0",
+          id: id++,
+          method: "eth_getTransactionByHash",
+          params: [ethMessage?.params?.result?.transactionHash],
+        };
+        ws.send(JSON.stringify(transactionPayload));
+      }
+    }
+  };
 
   ws.on("open", () => {
     ws.send(JSON.stringify(logSubscribePayload));
   });
 
-  ws.on("message", (data: string) => {
-    console.log(`received: ${data} \n`)
-    const ethMessage = JSON.parse(data)
-
-    if (!ethMessage.params?.result?.transactionHash) {
-      return
-    }
-
-    if (ethMessage.method === EthMessageMethod.Subscription) {
-      const transactionPayload = {
-        jsonrpc: '2.0',
-        id: id++,
-        method: "eth_getTransactionByHash",
-        params: [ethMessage?.params?.result?.transactionHash]
-      }
-      ws.send(JSON.stringify(transactionPayload))
-    }
-  });
+  ws.on("message", handleMessage);
 
   parentPort?.on("message", (message: WorkerMessage) => {
     switch (message) {
