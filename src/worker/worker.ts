@@ -12,7 +12,7 @@ export const worker = ({
   trackLastNTransactions,
 }: IWorkerData) => {
   const logger = winston.createLogger({
-    level: "info",
+    level: "debug",
     format: winston.format.json(),
     defaultMeta: { service: `chain ${chainId}` },
     transports: [

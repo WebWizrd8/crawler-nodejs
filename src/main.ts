@@ -1,4 +1,4 @@
-import { ENDPOINT_URL } from "./constants/env";
+import { SCROLL_ENDPOINT_URL, ETH_ENDPOINT_URL } from "./constants/env";
 import { WorkerMessage } from "./types/worker";
 import { worker } from "./worker/worker";
 import winston from "winston";
@@ -15,11 +15,11 @@ const logger = winston.createLogger({
   ],
 });
 
-function initWorker(id: number) {
+function initWorker(id: number, endpoint: string) {
   const worker = new Worker("./build/worker/main.js", {
     workerData: {
       chainId: id,
-      endpoint: ENDPOINT_URL,
+      endpoint,
       trackLastNTransactions: 1000,
     },
   });
@@ -36,21 +36,22 @@ function initWorker(id: number) {
   // TODO: handle different errors here
   worker.on("error", (error) => {
     logger.error(`Worker error: ${error}`);
-    initWorker(id);
+    initWorker(id, endpoint);
   });
 
   // Handle the worker thread exiting
   worker.on("exit", (code) => {
     if (code !== 0) {
       logger.error(`Worker stopped with exit code ${code}`);
-      initWorker(id);
+      initWorker(id, endpoint);
     }
   });
 }
 
 function main() {
   if (isMainThread) {
-    initWorker(1);
+    initWorker(1, SCROLL_ENDPOINT_URL);
+    initWorker(2, ETH_ENDPOINT_URL);
   } else {
     worker(workerData);
   }
