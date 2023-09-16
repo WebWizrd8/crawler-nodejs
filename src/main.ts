@@ -1,4 +1,4 @@
-import { SCROLL_ENDPOINT_URL, ETH_ENDPOINT_URL } from "./constants/env";
+import { getChainEndpoints, getChains } from "./data/client";
 import { WorkerMessage } from "./types/worker";
 import { worker } from "./worker/worker";
 import winston from "winston";
@@ -15,7 +15,16 @@ const logger = winston.createLogger({
   ],
 });
 
-function initWorker(id: number, endpoint: string) {
+function initWorker(id: number, endpoints: string[]) {
+  const endpoint = endpoints.shift();
+  if (!endpoint) {
+    logger.error(`No endpoint provided for chain_id: ${id}`);
+    return;
+  }
+
+  // cycle endpoints for the next launch
+  const shiftedEndpoints = endpoints.concat(endpoint);
+
   const worker = new Worker("./build/worker/main.js", {
     workerData: {
       chainId: id,
@@ -36,22 +45,28 @@ function initWorker(id: number, endpoint: string) {
   // TODO: handle different errors here
   worker.on("error", (error) => {
     logger.error(`Worker error: ${error}`);
-    initWorker(id, endpoint);
+    initWorker(id, shiftedEndpoints);
   });
 
   // Handle the worker thread exiting
   worker.on("exit", (code) => {
     if (code !== 0) {
       logger.error(`Worker stopped with exit code ${code}`);
-      initWorker(id, endpoint);
+      initWorker(id, shiftedEndpoints);
     }
   });
 }
 
-function main() {
+async function main() {
   if (isMainThread) {
-    initWorker(1, SCROLL_ENDPOINT_URL);
-    initWorker(2, ETH_ENDPOINT_URL);
+    const chains = await getChains();
+
+    chains.forEach(async (chain) => {
+      const { id } = chain;
+      const chainEndpoints = await getChainEndpoints(id);
+      const endpointsUrls = chainEndpoints.map(({ url }) => url);
+      initWorker(id, endpointsUrls);
+    });
   } else {
     worker(workerData);
   }
