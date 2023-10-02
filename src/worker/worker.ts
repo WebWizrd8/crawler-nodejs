@@ -3,6 +3,10 @@ import WebSocket from "ws";
 import { EthMessageMethod, IWorkerData, WorkerMessage } from "../types/worker";
 import { getLastTransactionsStorage } from "../utils/transactionHashStorage";
 import winston from "winston";
+import { Socket } from "net";
+import { NOTIFICATION_SOCKET } from "../constants/env"
+import { convertNumericProps } from "../utils/convertNumericProps";
+import { getDestinationsForTransaction } from "../data/client";
 
 let id = 0;
 
@@ -35,15 +39,16 @@ export const worker = ({
 
   const ws = new WebSocket(endpoint);
 
-  const handleMessage = (data: string) => {
-    logger.debug(`received: ${data} \n`);
+  const notificationQueue = new Socket();
+  notificationQueue.connect(NOTIFICATION_SOCKET, () => {
+    console.log("connected to notification socket");
+  })
+
+  const handleMessage = async (data: string) => {
+    // logger.debug(`received: ${data} \n`);
     const ethMessage = JSON.parse(data);
 
-    if (!ethMessage.params?.result?.transactionHash) {
-      return;
-    }
-
-    if (ethMessage.method === EthMessageMethod.Subscription) {
+    if (ethMessage.method === EthMessageMethod.Subscription && ethMessage.params?.result?.transactionHash) {
       const transactionHash = ethMessage.params.result.transactionHash;
       if (!hashTracker.has(transactionHash)) {
         hashTracker.push(transactionHash);
@@ -55,6 +60,13 @@ export const worker = ({
         };
         ws.send(JSON.stringify(transactionPayload));
       }
+    } else if (typeof ethMessage.result === 'object') {
+      const transaction = ethMessage.result
+      const convertedTransaction = convertNumericProps(transaction)
+
+      const destinations = await getDestinationsForTransaction(convertedTransaction);
+      console.log(destinations)
+      notificationQueue.write(JSON.stringify({ transaction, destinations }))
     }
   };
 

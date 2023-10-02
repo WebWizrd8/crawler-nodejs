@@ -21,4 +21,15 @@ export const getDestination = async (
 export const getAlert = async (
   id: IAlert["id"],
 ): Promise<IAlert> =>
-  (await fetch(DB_URL + "aleerts?id=eq." + id)).json();
+  (await fetch(DB_URL + "alerts?id=eq." + id)).json();
+
+export const getDestinationsForTransaction = async (event_data: Record<string, unknown>): Promise<IDestination[]> =>
+  (await fetch(DB_URL + "rpc/get_destination_targets", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Prefer': "params=single-object"
+    },
+    body: JSON.stringify(event_data)
+  }
+  )).json();

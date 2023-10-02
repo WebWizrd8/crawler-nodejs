@@ -28,3 +28,22 @@ export interface IAlert {
   destination_id: IDestination["id"];
   name: string;
 }
+
+enum Operator {
+  eq = "eq",
+  gt = "gt",
+  gte = "gte",
+  in = "in",
+  lt = "lt",
+  lte = "lte",
+  ne = "ne",
+  nin = "nin",
+}
+
+export interface IAlertCondition {
+  id: number;
+  alert_id: IAlert["id"]
+  field: string;
+  operator: Operator
+  value: string | number
+}
