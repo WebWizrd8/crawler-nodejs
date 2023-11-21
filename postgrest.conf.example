@@ -1,0 +1,3 @@
+db-uri = "postgres://mempools:mempools@localhost:5432/mempools"
+db-schema = "public"
+db-anon-role = "mempools"
